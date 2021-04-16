@@ -16,6 +16,10 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import { Input } from "../../components/Form/Input";
 import { Header } from "../../components/Header";
 import { Sidebar } from "../../components/Sidebar";
+import { useMutation } from "react-query";
+import { api } from "../../services/api";
+import { queryClient } from "../../services/queryClient";
+import { useRouter } from "next/router";
 
 type CreateUserFormData = {
   name: string;
@@ -31,12 +35,32 @@ const CreateUserFormSchema = yup.object().shape({
     .string()
     .required("Senha obrigatória")
     .min(6, "No mínimo 6 caracteres"),
-    password_confirmation: yup
+  password_confirmation: yup
     .string()
     .oneOf([null, yup.ref("password")], "As senhas precisam ser iguais"),
 });
 
 export default function CreateUser() {
+  const router = useRouter();
+
+  const createuser = useMutation(
+    async (user: CreateUserFormData) => {
+      const response = await api.post("users", {
+        user: {
+          ...user,
+          created_at: new Date(),
+        },
+      });
+
+      return response.data.user;
+    },
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(["users"]);
+      },
+    }
+  );
+
   const { register, handleSubmit, formState } = useForm({
     resolver: yupResolver(CreateUserFormSchema),
   });
@@ -46,8 +70,8 @@ export default function CreateUser() {
   const handleCreateUser: SubmitHandler<CreateUserFormData> = async (
     values
   ) => {
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    console.log({ values });
+    await createuser.mutateAsync(values);
+    router.push("/users");
   };
 
   return (
@@ -105,7 +129,11 @@ export default function CreateUser() {
           <Flex mt="8" justify="flex-end">
             <HStack spacing="4">
               <Link href="/users">
-                <Button as="a" colorScheme="whiteAlpha" isLoading={formState.isSubmitting}>
+                <Button
+                  as="a"
+                  colorScheme="whiteAlpha"
+                  isLoading={formState.isSubmitting}
+                >
                   Cancelar
                 </Button>
               </Link>
